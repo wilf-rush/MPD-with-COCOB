@@ -71,8 +71,7 @@ class ExperimentConfig:
              return Rosenbrock(negate=True).to(dtype=dtype,device=device)
     
 
-
-    #setup the experiemn
+    #setup the experiment
     def experiment_setup(self):
         train_xs, train_ys = self.generate_and_train.generate_shared_initial_data(
             self.objective,
@@ -124,13 +123,13 @@ class ExperimentConfig:
                 gradient_learning_samples=self.config.gradient_learning_samples,
                 move_counter=0,
                 iter_counter=0,
-                x_1=starting_point ###.unsqueeze(0)
+                x_1=starting_point 
             )
 
 
         execute = ExecuteOptimizer(
             optimizer=optimizer,
-            initial_x= starting_point, ###.unsqueeze(0)
+            initial_x= starting_point, 
             iterations=self.config.iterations
         )
 

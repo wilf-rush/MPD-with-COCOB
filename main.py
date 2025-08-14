@@ -311,7 +311,6 @@ class ExecuteOptimizer:
             #evaluate objective          
             y = self.optimizer.objective(x)
             self.iteration_values.append(y.item()) 
-            print(y)
             
             #update GP with new observation
             self.optimizer.update_gp(x, y)
