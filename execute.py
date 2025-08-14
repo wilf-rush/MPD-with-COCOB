@@ -148,9 +148,9 @@ class ExperimentConfig:
         averaged_moves = moves_array.mean(axis=0)
         averaged_time = np.mean(self.times)  
 
-        print('average paths',averaged_paths)
+        print('average path',averaged_paths)
 
-        print('average moves',averaged_moves)
+        print('average move',averaged_moves)
 
         print('average time',averaged_time)
       
