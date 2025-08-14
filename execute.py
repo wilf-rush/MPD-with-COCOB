@@ -15,6 +15,7 @@ SMOKE_TEST = os.environ.get("SMOKE_TEST")
 
 class OptimizerRunner:
     def __init__(
+            #default values for the inputs
             self,
             objective_function: str= "Branin",
             objective_dim: int = 2,
@@ -40,6 +41,7 @@ class OptimizerRunner:
         self.step_size = step_size
 
 
+#configure the experiments
 class ExperimentConfig:
     def __init__(self,config :OptimizerRunner):
 
@@ -52,6 +54,7 @@ class ExperimentConfig:
         self.moves = []
         self.times = []
         #####
+
 
     def objective_picker(self):
         if self.config.objective_function == "Branin": 
@@ -68,6 +71,8 @@ class ExperimentConfig:
              return Rosenbrock(negate=True).to(dtype=dtype,device=device)
     
 
+
+    #setup the experiemn
     def experiment_setup(self):
         train_xs, train_ys = self.generate_and_train.generate_shared_initial_data(
             self.objective,
@@ -81,6 +86,8 @@ class ExperimentConfig:
           self.config.seed
         )
 
+
+        ###could add another loop to cycle through step size etc
         for i in range(self.config.n_starts):
             self.run_experiment(train_xs, train_ys, starting_points[i])
 
@@ -89,6 +96,7 @@ class ExperimentConfig:
         self.print_averages()
         #######
 
+#define the two algo's
     def run_experiment(self,train_xs,train_ys,starting_point):
         gp_model, gp_trainer = self.generate_and_train.get_data_and_gp(
             self.objective, train_xs, train_ys
@@ -106,7 +114,7 @@ class ExperimentConfig:
                 iter_counter=0,
                 step_size=self.config.step_size
             )
-        elif self.config.pick_optimizer == "MPDwithCOCOB":
+        if self.config.pick_optimizer == "MPDwithCOCOB":
             optimizer = MPDwithCOCOB(
                 objective=self.objective,
                 gp_model=gp_model,
@@ -116,17 +124,17 @@ class ExperimentConfig:
                 gradient_learning_samples=self.config.gradient_learning_samples,
                 move_counter=0,
                 iter_counter=0,
-                x_1=starting_point.unsqueeze(0)
+                x_1=starting_point ###.unsqueeze(0)
             )
 
 
         execute = ExecuteOptimizer(
             optimizer=optimizer,
-            initial_x= starting_point.unsqueeze(0),
+            initial_x= starting_point, ###.unsqueeze(0)
             iterations=self.config.iterations
         )
 
-        result = execute.run_optimizer()
+        opt = execute.run_optimizer()
 
         ####### storage
         self.paths.append(np.array(execute.iteration_values).flatten())
@@ -134,7 +142,7 @@ class ExperimentConfig:
         self.times.append(execute.time)
         ########
 
-        return result
+        return opt
     
 
 
