@@ -54,7 +54,7 @@ class GradientInformation(botorch.acquisition.AnalyticAcquisitionFunction):
         K_xX = self.model.covar_module(x, X).evaluate()
         lengthscale = self.model.covar_module.base_kernel.lengthscale.detach()
         return (
-            -torch.eye(self.model.D, device=X.device, dtype=torch.float32)
+            -torch.eye(self.model.D, device=X.device, dtype=torch.float64)
             / lengthscale ** 2
             @ (
                 (x.view(n, 1, self.model.D) - X.view(1, N, self.model.D))

@@ -12,16 +12,14 @@ from botorch.exceptions import BadInitialCandidatesWarning
 from botorch.utils.transforms import unnormalize
 from gpytorch.utils.cholesky import psd_safe_cholesky
 from abc import ABC, abstractmethod
+
 from acquisitionfunction import DownhillQuadratic, optimize_acqf_custom_bo
 from model import DerivativeExactGPSEModel
 warnings.filterwarnings("ignore", category=BadInitialCandidatesWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-dtype = torch.float32
+dtype = torch.float64
 SMOKE_TEST = os.environ.get("SMOKE_TEST")
-
-
-
 
 
 
@@ -298,7 +296,7 @@ class ExecuteOptimizer:
 
         #get the initial x
         x = self.initial_x.clone()
-        print(f'Starting location: {x}')
+    
 
         self.optimizer.xs.append(x.clone())
         self.optimizer.ys.append(self.optimizer.objective(x).unsqueeze(0))
@@ -312,6 +310,7 @@ class ExecuteOptimizer:
         for i in range(self.iterations):
 
             self.optimizer.iter_counter += 1
+            print(self.optimizer.iter_counter)
 
             #reset cocob variables to 0
             if isinstance(self.optimizer, MPDwithCOCOB):
@@ -329,6 +328,7 @@ class ExecuteOptimizer:
             y = self.optimizer.objective(x)
             self.iteration_values.append(y.item())
             
+            
             #update GP with new observation
             self.optimizer.update_gp(x, y)
 
@@ -342,7 +342,6 @@ class ExecuteOptimizer:
             #make sure best x is returned
             self.remove_excess_points()
             best_x = self.optimizer.xs[0]
-            print(self.optimizer.ys)
 
         end = time.time()
         self.time = end - start

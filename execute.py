@@ -9,7 +9,7 @@ from main import GenerateData, MPD, MPDwithCOCOB, ExecuteOptimizer
 warnings.filterwarnings("ignore", category=BadInitialCandidatesWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-dtype = torch.float32
+dtype = torch.float64
 SMOKE_TEST = os.environ.get("SMOKE_TEST")
 
 

@@ -216,7 +216,7 @@ class DerivativeExactGPSEModel(ExactGPSEModel):
         K_xX = self.covar_module(x, X).evaluate()
         lengthscale = self.covar_module.base_kernel.lengthscale.detach()
         return (
-            -torch.eye(self.D, device=x.device, dtype=torch.float32)
+            -torch.eye(self.D, device=x.device, dtype=torch.float64)
             / lengthscale ** 2
             @ (
                 (x.view(n, 1, self.D) - X.view(1, self.N, self.D))
