@@ -41,4 +41,8 @@ experiment.experiment_setup()
 #python config.py --objective_function Branin --objective_dim 2 --iterations 20 --n_init 10 --n_starts 3 --seed 10 --optimizer MPD --p 0.85 --gradient_learning_samples 1 --step_size 0.01
 #python config.py --objective_function Branin --objective_dim 2 --iterations 20 --n_init 10 --n_starts 3 --seed 10 --optimizer MPDwithCOCOB --p 0.85 --gradient_learning_samples 1 
 
+##### activating virtual environment
+#python -m venv .venv
+#.venv\Scripts\Activate
+
 

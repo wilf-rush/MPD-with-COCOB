@@ -280,18 +280,35 @@ class ExecuteOptimizer:
         self.move_lengths = move_lengths
         self.time = time
 
+#### removes the excess points and only keep the best x and y
+    def remove_excess_points(self):
+        ys = torch.cat([y.reshape(1) for y in self.optimizer.ys])
+        best_point = ys.argmax()
+        best_x = self.optimizer.xs[best_point].clone()
+        best_y = self.optimizer.ys[best_point].clone()
+        self.optimizer.xs = [best_x]
+        self.optimizer.ys = [best_y]
+
+
+
     def run_optimizer(self):
         self.iteration_values = []
         self.move_lengths = []
         self.time = 0
+
         #get the initial x
         x = self.initial_x.clone()
+        print(f'Starting location: {x}')
 
         self.optimizer.xs.append(x.clone())
         self.optimizer.ys.append(self.optimizer.objective(x).unsqueeze(0))
 
         start = time.time()
-        
+
+
+
+
+        #optimization loop
         for i in range(self.iterations):
 
             self.optimizer.iter_counter += 1
@@ -310,7 +327,7 @@ class ExecuteOptimizer:
 
             #evaluate objective          
             y = self.optimizer.objective(x)
-            self.iteration_values.append(y.item()) 
+            self.iteration_values.append(y.item())
             
             #update GP with new observation
             self.optimizer.update_gp(x, y)
@@ -323,9 +340,9 @@ class ExecuteOptimizer:
             self.move_lengths.append(self.optimizer.move_counter)
 
             #make sure best x is returned
-            ys = torch.cat([y.reshape(1) for y in self.optimizer.ys])
-            best_point = ys.argmax() 
-            best_x = self.optimizer.xs[best_point].clone()
+            self.remove_excess_points()
+            best_x = self.optimizer.xs[0]
+            print(self.optimizer.ys)
 
         end = time.time()
         self.time = end - start

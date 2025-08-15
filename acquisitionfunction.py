@@ -207,7 +207,7 @@ class DownhillQuadratic(GradientInformation):
 
             try:
                 L_xstar_xstar_condx = psd_safe_cholesky(
-                    covar_xstar_xstar_condx, max_tries=10
+                    covar_xstar_xstar_condx, max_tries=50
                 )
             except:
                 from IPython.core.debugger import set_trace
