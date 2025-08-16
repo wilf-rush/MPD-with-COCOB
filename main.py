@@ -165,18 +165,17 @@ class MPD(BaseOptimizer):
         return v_star, mpd
 
     def update_step(self, x):
-        _ , mpd = self.calculate_direction_and_prob(x)
+        v_star , mpd = self.calculate_direction_and_prob(x)
         self.move_counter = 0 
         while mpd > self.min_descent_prob and self.move_counter < 10_000: 
             self.move_counter += 1
-            v_star, mpd = self.calculate_direction_and_prob(x)
             x_new = x + self.step_size * v_star
             x = x_new.detach()
             within_bounds = torch.all(x >= self.function_bounds[0]) and torch.all(x <= self.function_bounds[1])
             if within_bounds:
                 self.xs.append(x.clone())
                 self.ys.append(self.objective(x))
-            _ , mpd = self.calculate_direction_and_prob(x)
+            v_star , mpd = self.calculate_direction_and_prob(x)
         return x
     
 
@@ -231,11 +230,10 @@ class MPDwithCOCOB(BaseOptimizer):
 
     def update_step(self, x):
         #calculate mpd
-        _ , mpd = self.calculate_direction_and_prob_COCOB(x)
+        v_star , mpd = self.calculate_direction_and_prob_COCOB(x)
         self.move_counter = 0
         while mpd > self.min_descent_prob and self.move_counter < 10_000:
             self.move_counter += 1
-            v_star , mpd = self.calculate_direction_and_prob_COCOB(x)
             
             #coin betting move
             grad = v_star
@@ -256,7 +254,7 @@ class MPDwithCOCOB(BaseOptimizer):
                 self.xs.append(x.clone())
                 self.ys.append(self.objective(x))
             
-            _ , mpd = self.calculate_direction_and_prob_COCOB(x)
+            v_star , mpd = self.calculate_direction_and_prob_COCOB(x)
 
         return x
     
@@ -296,6 +294,7 @@ class ExecuteOptimizer:
 
         #get the initial x
         x = self.initial_x.clone()
+        print(f'Starting location: {x}')
     
 
         self.optimizer.xs.append(x.clone())
@@ -311,9 +310,10 @@ class ExecuteOptimizer:
 
             self.optimizer.iter_counter += 1
             print(self.optimizer.iter_counter)
-
-            #reset cocob variables to 0
-            if isinstance(self.optimizer, MPDwithCOCOB):
+            
+            #reset cocob variables to 0 every reset_num iterations
+            reset_num = 1
+            if isinstance(self.optimizer, MPDwithCOCOB) and i & reset_num == 0:
                 self.optimizer.reset_coin_betting_variables()
 
             #use best x so far
