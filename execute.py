@@ -22,7 +22,6 @@ class OptimizerRunner:
             iterations: int = 100,
             n_init: int = 10,
             n_starts: int = 1,
-            seed: int = 5,
             pick_optimizer: str = "MPD",
             p: float = 0.5,
             gradient_learning_samples: int = 1,
@@ -34,7 +33,6 @@ class OptimizerRunner:
         self.iterations = iterations
         self.n_init = n_init
         self.n_starts = n_starts
-        self.seed = seed
         self.pick_optimizer = pick_optimizer
         self.p = p
         self.gradient_learning_samples = gradient_learning_samples
@@ -76,13 +74,11 @@ class ExperimentConfig:
         train_xs, train_ys = self.generate_and_train.generate_shared_initial_data(
             self.objective,
             self.config.n_init,
-            self.config.seed
         )
 
         starting_points = self.generate_and_train.generate_sobol_starting_points(
           self.objective,
           self.config.n_init,
-          self.config.seed
         )
 
 
@@ -95,7 +91,7 @@ class ExperimentConfig:
         self.print_averages()
         #######
 
-#define the two algo's
+
     def run_experiment(self,train_xs,train_ys,starting_point):
         gp_model, gp_trainer = self.generate_and_train.get_data_and_gp(
             self.objective, train_xs, train_ys
@@ -134,6 +130,10 @@ class ExperimentConfig:
         )
 
         opt = execute.run_optimizer()
+
+
+
+
 
         ####### storage
         self.paths.append(np.array(execute.iteration_values).flatten())

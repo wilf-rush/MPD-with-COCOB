@@ -9,7 +9,6 @@ parser.add_argument("--objective_dim", type=int)
 parser.add_argument("--iterations", type=int)
 parser.add_argument("--n_init", type=int) 
 parser.add_argument("--n_starts", type=int)
-parser.add_argument("--seed", type=int)
 parser.add_argument("--optimizer", type=str) 
 parser.add_argument("--p", type=float, default=None)
 parser.add_argument("--gradient_learning_samples", type=int) 
@@ -23,7 +22,6 @@ config = OptimizerRunner(
     iterations=args.iterations,
     n_init=args.n_init,
     n_starts=args.n_starts,
-    seed=args.seed,
     pick_optimizer=args.optimizer,
     p=args.p,
     gradient_learning_samples=args.gradient_learning_samples,
@@ -38,8 +36,8 @@ experiment.experiment_setup()
 
 
 #### example for mpd and mpdcocob
-#python config.py --objective_function Branin --objective_dim 2 --iterations 20 --n_init 10 --n_starts 3 --seed 10 --optimizer MPD --p 0.85 --gradient_learning_samples 1 --step_size 0.01
-#python config.py --objective_function Branin --objective_dim 2 --iterations 20 --n_init 10 --n_starts 3 --seed 10 --optimizer MPDwithCOCOB --p 0.85 --gradient_learning_samples 1 
+#python config.py --objective_function Branin --objective_dim 2 --iterations 20 --n_init 10 --n_starts 3 --optimizer MPD --p 0.85 --gradient_learning_samples 1 --step_size 0.01
+#python config.py --objective_function Branin --objective_dim 2 --iterations 20 --n_init 10 --n_starts 3 --optimizer MPDwithCOCOB --p 0.85 --gradient_learning_samples 1 
 
 ##### activating virtual environment
 #python -m venv .venv

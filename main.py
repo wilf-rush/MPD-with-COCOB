@@ -74,8 +74,8 @@ class GenerateData:
         self.device = device 
         self.dtype = dtype
 
-    def generate_shared_initial_data(self, objective, n_init, seed):
-        sobol = SobolEngine(dimension=objective.dim, scramble=True, seed=seed)
+    def generate_shared_initial_data(self, objective, n_init):
+        sobol = SobolEngine(dimension=objective.dim, scramble=True, seed=10)
         xs = sobol.draw(n=n_init).to(dtype=self.dtype, device=self.device)
         train_xs = unnormalize(xs, objective.bounds)
         train_ys = objective(train_xs)
@@ -89,8 +89,8 @@ class GenerateData:
         gp_trainer.train(0)
         return gp_model, gp_trainer
     
-    def generate_sobol_starting_points(self, objective, n_starts, seed):
-        sobol = SobolEngine(dimension=objective.dim, scramble=True, seed=seed)
+    def generate_sobol_starting_points(self, objective, n_starts):
+        sobol = SobolEngine(dimension=objective.dim, scramble=True, seed=10)
         sobol_points = sobol.draw(n=n_starts).to(dtype=self.dtype, device=self.device)
         starting_points = unnormalize(sobol_points, objective.bounds)
         return starting_points
@@ -311,9 +311,8 @@ class ExecuteOptimizer:
             self.optimizer.iter_counter += 1
             print(self.optimizer.iter_counter)
             
-            #reset cocob variables to 0 every reset_num iterations
-            reset_num = 1
-            if isinstance(self.optimizer, MPDwithCOCOB) and i & reset_num == 0:
+            #reset cocob variables to 0 
+            if isinstance(self.optimizer, MPDwithCOCOB):
                 self.optimizer.reset_coin_betting_variables()
 
             #use best x so far
@@ -327,6 +326,7 @@ class ExecuteOptimizer:
             #evaluate objective          
             y = self.optimizer.objective(x)
             self.iteration_values.append(y.item())
+            print(y)
             
             
             #update GP with new observation
