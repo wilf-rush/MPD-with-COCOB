@@ -1,7 +1,7 @@
 import os
 import warnings
 import torch
-from botorch.test_functions import Branin, Hartmann, Ackley, Levy, Griewank, Rosenbrock
+from botorch.test_functions import Branin, Hartmann, Ackley, Levy, Griewank, Rosenbrock, Rastrigin
 import torch
 import numpy as np
 from botorch.exceptions import BadInitialCandidatesWarning
@@ -25,6 +25,9 @@ class OptimizerRunner:
             pick_optimizer: str = "MPD",
             p: float = 0.5,
             gradient_learning_samples: int = 1,
+            alpha: int = 100,
+            reset_num: int = 1,
+            if_norm: str = "no",
             step_size: float = 0.01,
             ):
         
@@ -36,6 +39,9 @@ class OptimizerRunner:
         self.pick_optimizer = pick_optimizer
         self.p = p
         self.gradient_learning_samples = gradient_learning_samples
+        self.alpha = alpha
+        self.reset_num = reset_num
+        self.if_norm = if_norm
         self.step_size = step_size
 
 
@@ -50,6 +56,7 @@ class ExperimentConfig:
         ##### storage
         self.paths = []
         self.moves = []
+        self.rates = []
         self.times = []
         #####
 
@@ -67,6 +74,9 @@ class ExperimentConfig:
              return Griewank(negate=True).to(dtype=dtype,device=device)
         if self.config.objective_function == "Rosenbrock": 
              return Rosenbrock(negate=True).to(dtype=dtype,device=device)
+        if self.config.objective_function == "Rastrigin": 
+             return Rastrigin(negate=True).to(dtype=dtype,device=device)
+        
     
 
     #setup the experiment
@@ -78,18 +88,18 @@ class ExperimentConfig:
 
         starting_points = self.generate_and_train.generate_sobol_starting_points(
           self.objective,
-          self.config.n_init,
+          self.config.n_starts,
         )
 
 
         ###could add another loop to cycle through step size etc
         for i in range(self.config.n_starts):
             self.run_experiment(train_xs, train_ys, starting_points[i])
-
         
-        ##### storage
-        self.print_averages()
-        #######
+        
+        self.print_path()
+        
+      
 
 
     def run_experiment(self,train_xs,train_ys,starting_point):
@@ -119,7 +129,10 @@ class ExperimentConfig:
                 gradient_learning_samples=self.config.gradient_learning_samples,
                 move_counter=0,
                 iter_counter=0,
-                x_1=starting_point 
+                x_1=starting_point,
+                alpha = self.config.alpha,
+                if_norm = self.config.if_norm,
+                reset_num = self.config.reset_num
             )
 
 
@@ -132,12 +145,10 @@ class ExperimentConfig:
         opt = execute.run_optimizer()
 
 
-
-
-
-        ####### storage
+        ####### storage (this is what was missing)
         self.paths.append(np.array(execute.iteration_values).flatten())
         self.moves.append(np.array(execute.move_lengths).flatten())
+        self.rates.append(np.array(execute.effective_learning_rates).flatten())
         self.times.append(execute.time)
         ########
 
@@ -145,24 +156,17 @@ class ExperimentConfig:
     
 
 
-    ##### storage
+    def print_path(self):
+        np.set_printoptions(precision=3, suppress=True)
 
-    def print_averages(self):
+        for i, (path, move, rate, t) in enumerate(zip(self.paths, self.moves, self.rates, self.times)):
+            print(f"\n--- Seed {i+1} ---")
+            print("Path:", path)
+            print("Moves:", move)
+            print("Rates:", rate)
+            print("Time:", t)
 
-        paths_array = np.array(self.paths)
-        moves_array = np.array(self.moves)
-        averaged_paths = paths_array.mean(axis=0)
-        averaged_moves = moves_array.mean(axis=0)
-        averaged_time = np.mean(self.times)  
-
-        print('average path',averaged_paths)
-
-        print('average move',averaged_moves)
-
-        print('average time',averaged_time)
       
-
-
 
 
 

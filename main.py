@@ -47,7 +47,7 @@ class BaseOptimizer(ABC):
         local_bounds = torch.stack([lower_local, upper_local])
         for m in range(self.gradient_learning_samples):
             acq_fun.update_theta_i(x) 
-            z, acq_value = optimize_acqf_custom_bo(acq_func=acq_fun, bounds=local_bounds,q=1,num_restarts=2,raw_samples=20)
+            z, acq_value = optimize_acqf_custom_bo(acq_func=acq_fun, bounds=local_bounds,q=1,num_restarts=5,raw_samples=64)
             y_z = self.objective(z)
             self.gp_model.append_train_data(z, y_z)
         self.gp_trainer.train(self.iter_counter)
@@ -161,8 +161,9 @@ class MPD(BaseOptimizer):
             chol_d = psd_safe_cholesky(var_d)  
             y = torch.linalg.solve_triangular(chol_d, mean_d.unsqueeze(-1), upper=False)
             v_star = torch.linalg.solve_triangular(chol_d.transpose(-2, -1), y, upper=True).squeeze(-1)
-            mpd = Normal(0, 1).cdf(torch.matmul(v_star, mean_d).sqrt()).item()
-        return v_star, mpd
+            v_star_new = torch.nn.functional.normalize(v_star , dim=0)
+            mpd = Normal(0, 1).cdf(torch.matmul(v_star_new, mean_d).sqrt()).item()
+        return v_star_new, mpd
 
     def update_step(self, x):
         v_star , mpd = self.calculate_direction_and_prob(x)
@@ -188,11 +189,13 @@ class MPD(BaseOptimizer):
 
 
 class MPDwithCOCOB(BaseOptimizer):
-    def __init__(self, objective, gp_model, gp_trainer, function_bounds, min_descent_prob, gradient_learning_samples,move_counter, iter_counter, x_1, a=100):
+    def __init__(self, objective, gp_model, gp_trainer, function_bounds, min_descent_prob, gradient_learning_samples,move_counter, iter_counter, x_1, alpha, reset_num, if_norm):
         
         super().__init__(objective, gp_model, gp_trainer,function_bounds, min_descent_prob, gradient_learning_samples,move_counter,iter_counter)
         
-        self.a = a
+        self.alpha = alpha
+        self.reset_num = reset_num
+        self.if_norm = if_norm
         self.x_1 = x_1
         dim = objective.dim
 
@@ -203,6 +206,8 @@ class MPDwithCOCOB(BaseOptimizer):
         self.G = torch.zeros(1, dim, dtype=dtype, device=device) 
         self.reward = torch.zeros(1, dim, dtype=dtype, device=device)
         self.theta = torch.zeros(1, dim, dtype=dtype, device=device)
+        ###for effective_learning_rate calculation
+        self.sum_square_grad = torch.zeros(1, dim, dtype=dtype, device=device)
         
     def update_gp(self, x, y):
         self.gp_model.append_train_data(x, y)
@@ -210,11 +215,12 @@ class MPDwithCOCOB(BaseOptimizer):
 
     def reset_coin_betting_variables(self):
         dim = self.objective.dim
-        self.L = torch.zeros(1, dim, dtype=dtype, device=device)
-        self.G = torch.zeros(1, dim, dtype=dtype, device=device) 
-        self.reward = torch.zeros(1, dim, dtype=dtype, device=device)
-        self.theta = torch.zeros(1, dim, dtype=dtype, device=device)
-        
+        if self.iter_counter % self.reset_num == 0: 
+            self.L = torch.zeros(1, dim, dtype=dtype, device=device)
+            self.G = torch.zeros(1, dim, dtype=dtype, device=device) 
+            self.reward = torch.zeros(1, dim, dtype=dtype, device=device)
+            self.theta = torch.zeros(1, dim, dtype=dtype, device=device)
+            
     def calculate_direction_and_prob_COCOB(self, x):
         self.gp_model.eval()
         self.gp_model.likelihood.eval()
@@ -224,17 +230,27 @@ class MPDwithCOCOB(BaseOptimizer):
             var_d = var_d.squeeze(0)
             chol_d = psd_safe_cholesky(var_d)  
             y = torch.linalg.solve_triangular(chol_d, mean_d.unsqueeze(-1), upper=False)
-            v_star = torch.linalg.solve_triangular(chol_d.transpose(-2, -1), y, upper=True).squeeze(-1)
-            mpd = Normal(0, 1).cdf(torch.matmul(v_star, mean_d).sqrt()).item()
+
+            if self.if_norm == "yes":
+                v_star = torch.linalg.solve_triangular(chol_d.transpose(-2, -1), y, upper=True).squeeze(-1)
+                v_star = torch.nn.functional.normalize(v_star, dim=0)
+                mpd = Normal(0, 1).cdf(torch.matmul(v_star, mean_d).sqrt()).item()
+            
+            else:
+                v_star = torch.linalg.solve_triangular(chol_d.transpose(-2, -1), y, upper=True).squeeze(-1)
+                mpd = Normal(0, 1).cdf(torch.matmul(v_star, mean_d).sqrt()).item()
+
         return v_star, mpd
 
     def update_step(self, x):
         #calculate mpd
         v_star , mpd = self.calculate_direction_and_prob_COCOB(x)
         self.move_counter = 0
+        effective_learning_rates = []
+        effective_learning_rate = torch.tensor(0, dtype=dtype, device=device)
         while mpd > self.min_descent_prob and self.move_counter < 10_000:
             self.move_counter += 1
-            
+
             #coin betting move
             grad = v_star
             #update maximum observed scale
@@ -246,8 +262,11 @@ class MPDwithCOCOB(BaseOptimizer):
             #update sum of the gradients
             self.theta += grad.detach()
             #calculate xs values - betted amounts
-            x_new = self.x_1 + (self.theta / (self.L * torch.max(self.G + self.L, self.a * self.L))) * (self.L + self.reward)
+            x_new = self.x_1 + (self.theta / (self.L * torch.max(self.G + self.L, self.alpha * self.L))) * (self.L + self.reward)
             x = x_new.detach()
+            
+            effective_learning_rate = torch.norm(torch.abs((self.L + self.reward) / (self.L * torch.max(self.G + self.L, self.alpha * self.L))))
+            effective_learning_rates.append(effective_learning_rate)
             
             within_bounds = torch.all(x >= self.function_bounds[0]) and torch.all(x <= self.function_bounds[1])
             if within_bounds:
@@ -256,7 +275,12 @@ class MPDwithCOCOB(BaseOptimizer):
             
             v_star , mpd = self.calculate_direction_and_prob_COCOB(x)
 
-        return x
+        if effective_learning_rates:
+            avg_elr = torch.stack(effective_learning_rates).mean()
+        else:
+            avg_elr = torch.tensor(0,dtype=dtype,device=device)
+
+        return x, avg_elr
     
 
 
@@ -268,13 +292,15 @@ class MPDwithCOCOB(BaseOptimizer):
 
 
 class ExecuteOptimizer:
-    def __init__(self, optimizer, initial_x, iterations,iteration_values=[],move_lengths=[],time=0):
+    def __init__(self, optimizer, initial_x, iterations,iteration_values=[],move_lengths=[],effective_learning_rates=[],time=0):
         self.optimizer = optimizer
         self.initial_x = initial_x
         self.iterations = iterations    
         self.iteration_values = iteration_values
         self.move_lengths = move_lengths
+        self.effective_learning_rates = effective_learning_rates
         self.time = time
+
 
 #### removes the excess points and only keep the best x and y
     def remove_excess_points(self):
@@ -290,11 +316,12 @@ class ExecuteOptimizer:
     def run_optimizer(self):
         self.iteration_values = []
         self.move_lengths = []
+        self.effective_learning_rates = []
         self.time = 0
 
         #get the initial x
         x = self.initial_x.clone()
-        print(f'Starting location: {x}')
+        
     
 
         self.optimizer.xs.append(x.clone())
@@ -309,7 +336,6 @@ class ExecuteOptimizer:
         for i in range(self.iterations):
 
             self.optimizer.iter_counter += 1
-            print(self.optimizer.iter_counter)
             
             #reset cocob variables to 0 
             if isinstance(self.optimizer, MPDwithCOCOB):
@@ -326,7 +352,6 @@ class ExecuteOptimizer:
             #evaluate objective          
             y = self.optimizer.objective(x)
             self.iteration_values.append(y.item())
-            print(y)
             
             
             #update GP with new observation
@@ -336,8 +361,15 @@ class ExecuteOptimizer:
             self.optimizer.learn_gradients(x)
 
             #update step
-            x = self.optimizer.update_step(x)
-            self.move_lengths.append(self.optimizer.move_counter)
+            if isinstance(self.optimizer,MPDwithCOCOB):
+                x, effective_learning_rate = self.optimizer.update_step(x)
+                self.effective_learning_rates.append(effective_learning_rate)
+                self.move_lengths.append(self.optimizer.move_counter)
+            
+            else:
+                x = self.optimizer.update_step(x)
+                self.move_lengths.append(self.optimizer.move_counter)
+            
 
             #make sure best x is returned
             self.remove_excess_points()
